@@ -7,16 +7,14 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from email.message import EmailMessage, Message
+from email.message import Message
 from email.utils import getaddresses
-from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
 
-from jac.config import MailConfig
+from jac.config import ConfigError
+from jac.sources import Source
 
-_JOB_PATH_RE = re.compile(r"^/(?:comm/)?jobs/view/(\d{4,20})/?$")
-_ALLOWED_HOSTS = {"www.linkedin.com", "linkedin.com"}
 _URL_IN_TEXT_RE = re.compile(r"https?://[^\s<>\"'()\[\]]+", re.IGNORECASE)
 _COMMENT_RE = re.compile(r"\([^)]*\)")
 _RESULT_RE = re.compile(r"^(dkim|spf|dmarc)=([a-z]+)\b(.*)$", re.IGNORECASE | re.DOTALL)
@@ -56,7 +54,18 @@ def _prop_domain(value: str) -> str:
     return _domain(value.strip("<>")) if "@" in value else value.strip("<>").lower()
 
 
-def _check_auth(msg: Message, cfg: MailConfig) -> list[str]:
+def authserv_trusted(authserv_id: str, trusted: list[str]) -> bool:
+    """Exact match, or a '*.suffix' entry for providers whose server names vary."""
+    for entry in (t.lower() for t in trusted):
+        if entry.startswith("*."):
+            if authserv_id.endswith(entry[1:]):
+                return True
+        elif authserv_id == entry:
+            return True
+    return False
+
+
+def _check_auth(msg: Message, source: Source, trusted: list[str]) -> list[str]:
     """Check the receiving server's verdicts. Only the topmost Authentication-Results counts.
 
     The receiving server prepends its own header, so the top one is genuine and any header
@@ -67,11 +76,10 @@ def _check_auth(msg: Message, cfg: MailConfig) -> list[str]:
     if not headers:
         return ["no Authentication-Results header"]
     authserv_id, results = _parse_auth_results(str(headers[0]))
-    trusted = {t.lower() for t in cfg.trusted_authserv_ids}
-    if authserv_id not in trusted:
+    if not authserv_trusted(authserv_id, trusted):
         return [f"topmost Authentication-Results is from {authserv_id or 'unknown'}, not a trusted receiver"]
     reasons: list[str] = []
-    domain = cfg.sender_domain
+    domain = source.sender_domain
     dkim_ok = any(
         result == "pass"
         and domain in (_prop_domain(props.get("header.d", "")), _prop_domain(props.get("header.i", "")))
@@ -91,49 +99,20 @@ def _check_auth(msg: Message, cfg: MailConfig) -> list[str]:
     return reasons
 
 
-def _check_headers(msg: Message, cfg: MailConfig) -> tuple[str, list[str]]:
+def _check_headers(msg: Message, source: Source) -> tuple[str, list[str]]:
     reasons: list[str] = []
-    from_headers = msg.get_all("From") or []
-    addresses = [a for _, a in getaddresses([str(h) for h in from_headers]) if a]
+    addresses = [a for _, a in getaddresses([str(h) for h in msg.get_all("From") or []]) if a]
     if len(addresses) != 1:
         return "", [f"expected exactly one From address, found {len(addresses)}"]
     sender = addresses[0].lower()
-    if _domain(sender) != cfg.sender_domain:
-        reasons.append(f"From domain {_domain(sender)!r} is not exactly {cfg.sender_domain}")
-    if sender not in {s.lower() for s in cfg.allowed_senders}:
+    if _domain(sender) != source.sender_domain:
+        reasons.append(f"From domain {_domain(sender)!r} is not exactly {source.sender_domain}")
+    if sender not in {s.lower() for s in source.allowed_senders}:
         reasons.append(f"sender {sender} is not in the allowed sender list")
-    reply_to = [a for _, a in getaddresses([str(h) for h in msg.get_all("Reply-To") or []]) if a]
-    for address in reply_to:
-        if _domain(address) != cfg.sender_domain:
-            reasons.append(f"Reply-To {address} is not at {cfg.sender_domain}")
+    for _, address in getaddresses([str(h) for h in msg.get_all("Reply-To") or []]):
+        if address and _domain(address) != source.sender_domain:
+            reasons.append(f"Reply-To {address} is not at {source.sender_domain}")
     return sender, reasons
-
-
-def canonical_job_url(url: str) -> str | None:
-    """Return https://www.linkedin.com/jobs/view/<id> for a safe job-view link, else None.
-
-    Rejects anything that is not https, any host other than linkedin.com or www.linkedin.com
-    (so shorteners, lookalikes, punycode and userinfo tricks all fail), ports, and every path
-    except a numeric job view. All query strings and fragments are dropped.
-    """
-    url = url.strip()
-    if any(ch.isspace() or ord(ch) < 32 or ch == "\\" for ch in url):
-        return None
-    try:
-        parts = urlsplit(url)
-        host_ok = parts.netloc.lower() in _ALLOWED_HOSTS
-    except ValueError:
-        return None
-    if parts.scheme.lower() != "https" or not host_ok:
-        return None
-    match = _JOB_PATH_RE.match(parts.path)
-    if not match:
-        return None
-    return f"https://www.linkedin.com/jobs/view/{match.group(1)}"
-
-
-def job_id_from_url(canonical: str) -> str:
-    return canonical.rstrip("/").rsplit("/", 1)[1]
 
 
 def _candidate_urls(msg: Message) -> list[str]:
@@ -155,16 +134,25 @@ def _candidate_urls(msg: Message) -> list[str]:
     return urls
 
 
-def verify_message(msg: EmailMessage | Message, cfg: MailConfig) -> MailVerdict:
-    """Verify one message. Links are only extracted from accepted messages."""
-    sender, reasons = _check_headers(msg, cfg)
-    reasons += _check_auth(msg, cfg)
+def verify_message(msg: Message, source: Source, trusted_authserv_ids: list[str]) -> MailVerdict:
+    """Verify one message for a source. Links are only extracted from accepted messages.
+
+    Raises ConfigError when no trusted authserv-id is configured: without it we cannot tell
+    the receiving server's header from a forged one, so we refuse to verify at all.
+    """
+    if not trusted_authserv_ids:
+        raise ConfigError(
+            "mail.trusted_authserv_ids is not set. Set mail.provider (gmail, outlook, yahoo, fastmail) "
+            "or list the authserv-id of your mail provider; verification will not run without it."
+        )
+    sender, reasons = _check_headers(msg, source)
+    reasons += _check_auth(msg, source, trusted_authserv_ids)
     if reasons:
         return MailVerdict(accepted=False, reasons=reasons, sender=sender)
     job_urls: list[str] = []
     rejected: list[str] = []
     for url in _candidate_urls(msg):
-        canonical = canonical_job_url(url)
+        canonical = source.canonicalize(url)
         if canonical is None:
             rejected.append(url)
         elif canonical not in job_urls:

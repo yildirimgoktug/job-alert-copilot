@@ -2,27 +2,56 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
-DEFAULT_SENDERS = [
-    "jobalerts-noreply@linkedin.com",
-    "jobs-noreply@linkedin.com",
-    "jobs-listings@linkedin.com",
-]
+AUTHSERV_PRESETS: dict[str, list[str]] = {
+    "gmail": ["mx.google.com"],
+    "outlook": ["*.protection.outlook.com", "mx.microsoft.com"],
+    "yahoo": ["*.mail.yahoo.com"],
+    "fastmail": ["*.messagingengine.com"],
+}
+IMAP_PRESETS: dict[str, tuple[str, int]] = {
+    "gmail": ("imap.gmail.com", 993),
+    "outlook": ("outlook.office365.com", 993),
+    "yahoo": ("imap.mail.yahoo.com", 993),
+    "fastmail": ("imap.fastmail.com", 993),
+}
+
+
+class ConfigError(Exception):
+    """A setting is missing or wrong; the message says what to change."""
 
 
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class MailConfig(_Strict):
-    """Which messages are even considered, and whose Authentication-Results we trust."""
+class ImapConfig(_Strict):
+    """Read-only IMAP access. The password lives in the OS keyring, never here."""
 
-    allowed_senders: list[str] = Field(default_factory=lambda: list(DEFAULT_SENDERS))
-    trusted_authserv_ids: list[str] = Field(default_factory=lambda: ["mx.google.com"])
-    sender_domain: str = "linkedin.com"
+    host: str = ""
+    port: int = 993
+    user: str = ""
+    folder: str = "INBOX"
+    window_days: int = 7
+
+
+class MailConfig(_Strict):
+    """Where mail comes from and whose Authentication-Results header we trust."""
+
+    method: Literal["eml", "imap", "gmail"] = "eml"
+    provider: str = ""
+    trusted_authserv_ids: list[str] = Field(default_factory=list)
+    allowed_senders: list[str] | None = None
+    eml_folder: str = "mail"
+    imap: ImapConfig = Field(default_factory=ImapConfig)
+
+    def authserv_ids(self) -> list[str]:
+        """Explicit ids if set, else the provider preset. Empty means verification must refuse."""
+        return self.trusted_authserv_ids or AUTHSERV_PRESETS.get(self.provider, [])
 
 
 class FetchConfig(_Strict):
@@ -47,7 +76,6 @@ class GmailConfig(_Strict):
 
 
 class PathsConfig(_Strict):
-    profile: str = "profile.yaml"
     db: str = "jac.sqlite"
     out: str = "out"
     cache: str = "cache"
@@ -72,3 +100,9 @@ def load_config(path: Path) -> Config:
         return Config()
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     return Config.model_validate(data)
+
+
+def dump_config(cfg: Config, path: Path) -> None:
+    """Write config.yaml with only the settings that differ from the defaults."""
+    data = cfg.model_dump(mode="json", exclude_defaults=True)
+    path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")

@@ -16,6 +16,9 @@ dependencies = [
   "jinja2>=3.1",
   "pydantic>=2.5",
   "pyyaml>=6.0",
+  "platformdirs>=3.0",
+  "keyring>=24",
+  "pypdf>=4.0",
 ]
 
 [project.optional-dependencies]
@@ -29,7 +32,7 @@ jac = "jac.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-jac = ["templates/*.j2"]
+jac = ["templates/*.j2", "demo_data/*.yaml", "demo_data/eml/*.eml", "demo_data/postings/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

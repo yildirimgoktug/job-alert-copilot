@@ -3,15 +3,16 @@ import email.policy
 
 import pytest
 
-from jac.config import MailConfig
-from jac.verify import canonical_job_url, verify_message
+from jac.config import ConfigError
+from jac.sources import LINKEDIN, canonical_job_url
+from jac.verify import verify_message
 from mailfactory import GOOD_AUTH, build_mail, job_link
 
-CFG = MailConfig()
+TRUSTED = ["mx.google.com"]
 
 
 def check(raw: bytes):
-    return verify_message(email.message_from_bytes(raw, policy=email.policy.default), CFG)
+    return verify_message(email.message_from_bytes(raw, policy=email.policy.default), LINKEDIN, TRUSTED)
 
 
 def test_authentic_alert_is_accepted_and_urls_are_canonical():
@@ -158,3 +159,16 @@ def test_unsafe_links_in_an_accepted_mail_are_dropped():
 )
 def test_canonical_job_url(url, expected):
     assert canonical_job_url(url) == expected
+
+
+def test_verification_refuses_without_trusted_authserv_id():
+    msg = email.message_from_bytes(build_mail(), policy=email.policy.default)
+    with pytest.raises(ConfigError):
+        verify_message(msg, LINKEDIN, [])
+
+
+def test_wildcard_authserv_preset_matches_provider_subdomains():
+    raw = build_mail(auth=[GOOD_AUTH.replace("mx.google.com", "mta123.mail.yahoo.com")])
+    msg = email.message_from_bytes(raw, policy=email.policy.default)
+    assert verify_message(msg, LINKEDIN, ["*.mail.yahoo.com"]).accepted
+    assert not verify_message(msg, LINKEDIN, ["*.mail.yahoo.com.evil.tld"]).accepted

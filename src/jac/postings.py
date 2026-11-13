@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup, Comment, Tag
 from pydantic import BaseModel
 
 from jac.config import FetchConfig
-from jac.verify import canonical_job_url
+from jac.sources import canonical_job_url
 
 _BLOCK_TAGS = ["p", "div", "li", "br", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "section", "ul", "ol"]
 _HIDDEN_STYLE_MARKERS = (
