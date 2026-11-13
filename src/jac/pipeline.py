@@ -19,10 +19,8 @@ from jac.postings import Posting, PostingFetcher, parse_posting
 from jac.profile import Profile
 from jac.queue import Job, Queue
 from jac.sources import Source
-from jac.tailor.cover import write_cover_note
-from jac.tailor.pdf import BrowserPageCounter, find_browser, html_to_pdf
-from jac.tailor.rank import keyword_rank, llm_rerank
-from jac.tailor.render import ChainedPageCounter, HeuristicPageCounter, render_cv
+from jac.tailor.build import build_application
+from jac.tailor.pdf import find_browser
 from jac.verify import verify_message
 
 log = logging.getLogger(__name__)
@@ -47,23 +45,10 @@ def llm_from_config(cfg: Config) -> LLMClient | None:
 def _prepare_artifacts(
     profile: Profile, posting: Posting, cfg: Config, out_dir: Path, llm: LLMClient | None
 ) -> tuple[str, str, str]:
-    """Write cv.html, cv.pdf (if a browser exists) and cover_note.md; return their paths."""
+    """Write cv.html, cv.pdf (if a browser exists), cover_note.md and meta.json; return the paths."""
     folder = out_dir / "jobs" / posting.job_id
-    folder.mkdir(parents=True, exist_ok=True)
-    selection = keyword_rank(profile, posting)
-    if llm is not None:
-        selection = llm_rerank(llm, profile, posting, selection)
-    browser = find_browser(cfg.pdf.browser_path)
-    counter = ChainedPageCounter(BrowserPageCounter(browser), HeuristicPageCounter()) if browser else HeuristicPageCounter()
-    cv = render_cv(profile, selection, counter)
-    html_path = folder / "cv.html"
-    html_path.write_text(cv.html, encoding="utf-8")
-    pdf_path = folder / "cv.pdf"
-    has_pdf = bool(browser) and html_to_pdf(browser, html_path, pdf_path)
-    cover = write_cover_note(profile, posting, selection, llm)
-    cover_path = folder / "cover_note.md"
-    cover_path.write_text(cover.text + "\n", encoding="utf-8")
-    return str(pdf_path if has_pdf else ""), str(html_path), str(cover_path)
+    artifacts = build_application(profile, posting, folder, llm, find_browser(cfg.pdf.browser_path))
+    return str(artifacts.cv_pdf or ""), str(artifacts.cv_html), str(artifacts.cover_note)
 
 
 def run(

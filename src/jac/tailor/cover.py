@@ -45,7 +45,8 @@ def _plain(text: str) -> str:
 
 
 def _top_bullets(profile: Profile, selection: Selection, limit: int) -> list[str]:
-    by_id = {b.id: b.text for f in profile.facts if f.kind != "education" for b in f.bullets}
+    work = ("experience", "project")  # citations and grades make poor cover-note material
+    by_id = {b.id: b.text for f in profile.facts if f.kind in work for b in f.bullets}
     return [_plain(by_id[i]) for i in selection.priority if i in by_id][:limit]
 
 
