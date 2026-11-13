@@ -42,7 +42,7 @@ def test_number_words_are_checked(profile, load_posting):
     assert any("five" in v for v in result.violations)
 
 
-def test_posting_numbers_are_allowed(profile, load_posting):
+def test_bank_numbers_are_allowed(profile, load_posting):
     assert validate_text("I can work 16 hours per week.", profile, load_posting("3900000001")).ok
 
 
@@ -54,7 +54,7 @@ def test_unknown_company_and_technology_are_rejected(profile, load_posting):
     assert {"spark", "docker"} <= {v.split(": ")[1].lower() for v in tech.violations}
 
 
-def test_technology_in_the_posting_alone_is_allowed(profile, load_posting):
+def test_technology_in_the_bank_is_allowed(profile, load_posting):
     assert validate_text("I know pytest well.", profile, load_posting("3900000001")).ok
 
 
