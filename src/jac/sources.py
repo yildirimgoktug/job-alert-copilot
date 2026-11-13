@@ -26,7 +26,7 @@ class Source:
         return canonical_url.rstrip("/").rsplit("/", 1)[1]
 
 
-_LINKEDIN_PATH = re.compile(r"^/(?:comm/)?jobs/view/(\d{4,20})/?$")
+_LINKEDIN_PATH = re.compile(r"^/(?:comm/)?jobs/view/([0-9]{4,20})/?$")  # ASCII digits only
 _LINKEDIN_HOSTS = {"www.linkedin.com", "linkedin.com"}
 
 
