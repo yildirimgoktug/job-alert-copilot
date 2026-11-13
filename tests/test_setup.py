@@ -314,3 +314,8 @@ def test_cli_init_import_and_profile_check(tmp_path, capsys):
     assert cli.main(["--home", home, "profile", "check"]) == 1  # gaps remain (no skills, etc.)
     out = capsys.readouterr().out
     assert "What was understood" in out and "What is missing" in out
+
+
+def test_bundled_example_profile_matches_the_root_copy():
+    root = Path(__file__).resolve().parent.parent
+    assert (root / "profile.example.yaml").read_bytes() == (root / "src/jac/demo_data/profile.example.yaml").read_bytes()

@@ -6,7 +6,7 @@ from jac.postings import Posting, parse_posting
 from jac.profile import Profile, load_profile
 
 ROOT = Path(__file__).resolve().parent.parent
-POSTINGS = ROOT / "examples" / "postings"
+POSTINGS = ROOT / "src" / "jac" / "demo_data" / "postings"
 
 
 def posting_html(job_id: str) -> str:
