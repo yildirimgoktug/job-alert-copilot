@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>job-alert-copilot</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 62rem; margin: 2rem auto; padding: 0 1rem; color: #1b2130; }
+  h1 { font-size: 1.5rem; } h2 { font-size: 1.1rem; margin-top: 2rem; border-bottom: 1px solid #ccd; padding-bottom: .2rem; }
+  .job { border: 1px solid #ccd; border-radius: 6px; padding: .7rem 1rem; margin: .7rem 0; }
+  .tag { font-size: .75rem; padding: .1rem .5rem; border-radius: 1rem; background: #e6ecf5; }
+  .fit { background: #d8f0dc; } .borderline { background: #fbefc9; } .reject, .manual { background: #f3d9d9; }
+  ul { margin: .4rem 0; padding-left: 1.2rem; } .muted { color: #586173; font-size: .9rem; }
+  .note { background: #eef2f8; padding: .6rem 1rem; border-radius: 6px; }
+</style>
+</head>
+<body>
+<h1>job-alert-copilot</h1>
+<p class="note">Nothing here was submitted. Open the posting, read it, check the CV and the note, and press apply yourself.</p>
+
+<h2>Prepared ({{ prepared|length }})</h2>
+{% for v in prepared %}
+<div class="job">
+  <strong>{{ v.job.title }}</strong> at {{ v.job.company }} <span class="muted">{{ v.job.location }}</span>
+  <span class="tag {{ v.job.verdict }}">{{ v.job.verdict }}</span> <span class="tag">{{ v.job.status }}</span>
+  <ul>{% for r in v.job.reasons %}<li>{{ r }}</li>{% else %}<li>No concerns found by the rules.</li>{% endfor %}</ul>
+  <a href="{{ v.cv }}">CV{% if v.cv.endswith('.pdf') %} (PDF){% endif %}</a>{% if v.cv_html and v.cv != v.cv_html %} · <a href="{{ v.cv_html }}">CV (HTML)</a>{% endif %}
+  · <a href="{{ v.cover }}">Cover note</a>
+  · <a href="{{ v.job.url }}" rel="noopener noreferrer">Posting</a>
+  <span class="muted">· job {{ v.job.job_id }}: <code>jac open {{ v.job.job_id }}</code></span>
+</div>
+{% else %}<p class="muted">Nothing prepared yet.</p>{% endfor %}
+
+<h2>Open manually ({{ manual|length }})</h2>
+{% for v in manual %}
+<div class="job"><a href="{{ v.job.url }}" rel="noopener noreferrer">{{ v.job.url }}</a>
+  <ul>{% for r in v.job.reasons %}<li>{{ r }}</li>{% endfor %}</ul></div>
+{% else %}<p class="muted">None.</p>{% endfor %}
+
+<h2>Skipped by the rules ({{ skipped|length }})</h2>
+{% for v in skipped %}
+<div class="job"><strong>{{ v.job.title }}</strong> at {{ v.job.company }}
+  <ul>{% for r in v.job.reasons %}<li>{{ r }}</li>{% endfor %}</ul></div>
+{% else %}<p class="muted">None.</p>{% endfor %}
+
+<h2>Quarantined mails ({{ quarantined|length }})</h2>
+{% for mail_id, sender, reasons in quarantined %}
+<div class="job"><code>{{ mail_id }}</code> from <code>{{ sender or 'unknown' }}</code>
+  <ul>{% for r in reasons %}<li>{{ r }}</li>{% endfor %}</ul>
+  <span class="muted">These mails failed the authenticity checks. Their links were never read.</span></div>
+{% else %}<p class="muted">None.</p>{% endfor %}
+</body>
+</html>

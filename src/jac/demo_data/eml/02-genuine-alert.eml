@@ -1,0 +1,43 @@
+Authentication-Results: mx.google.com; dkim=pass header.i=@linkedin.com
+ header.s=proddkim1024 header.b=AbCdEf12; spf=pass (google.com: domain of
+ jobalerts-noreply@linkedin.com designates 108.174.3.1 as permitted sender)
+ smtp.mailfrom=jobalerts-noreply@linkedin.com; dmarc=pass (p=REJECT sp=REJECT
+ dis=NONE) header.from=linkedin.com
+From: "LinkedIn Job Alerts" <jobalerts-noreply@linkedin.com>
+To: student@example.com
+Subject: 4 new jobs for 'student' in Amsterdam
+Date: Tue, 10 Nov 2026 08:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="===============0994690330953922645=="
+
+--===============0994690330953922645==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+https://www.linkedin.com/comm/jobs/view/3900000005/?trackingId=3Dabc%3D%3D&re=
+fId=3Dxyz&midToken=3Dsecret
+https://www.linkedin.com/comm/jobs/view/3900000006/?trackingId=3Dabc%3D%3D&re=
+fId=3Dxyz&midToken=3Dsecret
+https://www.linkedin.com/comm/jobs/view/3900000007/?trackingId=3Dabc%3D%3D&re=
+fId=3Dxyz&midToken=3Dsecret
+https://www.linkedin.com/comm/jobs/view/3900000008/?trackingId=3Dabc%3D%3D&re=
+fId=3Dxyz&midToken=3Dsecret
+https://lnkd.in/xYz123
+
+--===============0994690330953922645==
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><body><p>Jobs for you</p><ul><li><a href=3D"https://www.linkedin.com/co=
+mm/jobs/view/3900000005/?trackingId=3Dabc%3D%3D&refId=3Dxyz&midToken=3Dsecret=
+">Job 1</a></li><li><a href=3D"https://www.linkedin.com/comm/jobs/view/390000=
+0006/?trackingId=3Dabc%3D%3D&refId=3Dxyz&midToken=3Dsecret">Job 2</a></li><li=
+><a href=3D"https://www.linkedin.com/comm/jobs/view/3900000007/?trackingId=3D=
+abc%3D%3D&refId=3Dxyz&midToken=3Dsecret">Job 3</a></li><li><a href=3D"https:/=
+/www.linkedin.com/comm/jobs/view/3900000008/?trackingId=3Dabc%3D%3D&refId=3Dx=
+yz&midToken=3Dsecret">Job 4</a></li><li><a href=3D"https://lnkd.in/xYz123">Jo=
+b 5</a></li></ul></body></html>
+
+--===============0994690330953922645==--

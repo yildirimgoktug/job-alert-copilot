@@ -1,0 +1,35 @@
+Authentication-Results: mx.google.com; dkim=fail header.i=@linkedin.com
+ header.s=proddkim1024 header.b=AbCdEf12; spf=softfail (google.com: domain of
+ jobalerts-noreply@linkedin.com designates 108.174.3.1 as permitted sender)
+ smtp.mailfrom=jobalerts-noreply@linkedin.com; dmarc=pass (p=REJECT sp=REJECT
+ dis=NONE) header.from=linkedin.com
+Authentication-Results: mx.google.com; dkim=pass header.i=@linkedin.com
+ header.s=proddkim1024 header.b=AbCdEf12; spf=pass (google.com: domain of
+ jobalerts-noreply@linkedin.com designates 108.174.3.1 as permitted sender)
+ smtp.mailfrom=jobalerts-noreply@linkedin.com; dmarc=pass (p=REJECT sp=REJECT
+ dis=NONE) header.from=linkedin.com
+From: "LinkedIn Job Alerts" <jobalerts-noreply@linkedin.com>
+To: student@example.com
+Subject: 3 new jobs for 'AI intern' in Amsterdam
+Date: Tue, 10 Nov 2026 08:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="===============2140230459631752780=="
+
+--===============2140230459631752780==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+https://www.linkedin.com/comm/jobs/view/3900000010/?trackingId=3Dabc%3D%3D&re=
+fId=3Dxyz&midToken=3Dsecret
+
+--===============2140230459631752780==
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><body><p>Jobs for you</p><ul><li><a href=3D"https://www.linkedin.com/co=
+mm/jobs/view/3900000010/?trackingId=3Dabc%3D%3D&refId=3Dxyz&midToken=3Dsecret=
+">Job 1</a></li></ul></body></html>
+
+--===============2140230459631752780==--
