@@ -62,16 +62,16 @@ flowchart LR
   D --> H((You press apply))
 ```
 
-1. **Mail authenticity first.** A message is processed only if the From domain is exactly the site's domain and the address is on the allowed list, the topmost `Authentication-Results` header (added by *your* provider, whose authserv-id you configure) shows `dkim=pass` for that domain, `spf=pass` and `dmarc=pass`, and any `Reply-To` is on the same domain. Otherwise the mail is quarantined with the reason and its links are never read. Display names are never trusted. The provider preset is required: without a trusted authserv-id the tool refuses to verify.
+1. **Mail authenticity first.** A message is processed only if it has exactly one From address, on exactly the site's domain and on the allowed list; the topmost `Authentication-Results` header (added by *your* provider, whose authserv-id you configure) shows `dkim=pass` for that domain, `spf=pass`, and `dmarc=pass` with `header.from` equal to that domain, and no failing SPF or DMARC result; and any `Reply-To` or `Sender` is on the same domain. Headers are read as received (encoded words are not decoded into addresses), and a header block Python cannot fully parse is refused. Otherwise the mail is quarantined with the reason and its links are never read. Display names are never trusted. The provider preset is required: without a trusted authserv-id the tool refuses to verify.
 2. **Link safety.** Only `https` job-view links on exactly `www.linkedin.com` or `linkedin.com` are kept; every query parameter is dropped and the URL is rebuilt as `https://www.linkedin.com/jobs/view/<id>`. Shorteners, lookalikes, punycode, `user@host` tricks and redirects are rejected.
 3. **Polite fetching.** Public guest page only, on-disk cache, one request per 10 seconds, 20 per run, plain User-Agent, stop on HTTP 429/999 or a login wall and mark the job "open manually".
 4. **Rules decide.** Posting language, required languages, degree level, years of experience, hours, period, location, and visa or citizenship lines. All are driven by *your* profile (nothing is specific to one country). Visa lines are never auto-accepted or auto-rejected: the sentence is quoted and you decide. An optional LLM can only add notes or lower a verdict.
-5. **No invented experience.** The CV is rendered from your fact bank; an LLM, if used, may only return IDs of existing facts and an order. The cover note is checked by a validator (every number, year, company and technology must exist in your fact bank or the posting; `never_claim` strings never appear); after one retry it falls back to a fixed template.
-6. **Postings are data.** Posting and mail text sit in delimited blocks, the model has no tools, and its output must match a strict schema. Hidden text (`display:none`, zero-size fonts) is removed before anything reads it.
+5. **No invented experience.** The CV is rendered from your fact bank; an LLM, if used, may only return IDs of existing facts and an order. The cover note is checked by a validator: every number, year, capitalised name and known technology must exist in your fact bank or in the posting's title, company or location (not its description, so "5 years of Docker" in a posting cannot become your claim); `never_claim` strings never appear, also not behind invisible characters, look-alike letters or HTML entities. After one retry it falls back to a fixed template. The check is a word filter, not understanding: see Limitations.
+6. **Postings are data.** Posting and mail text sit in delimited blocks, the model has no tools, and its output must match a strict schema. Text hidden with HTML attributes or inline styles (`display:none`, zero size, off-screen, white text, clipping) is removed before anything reads it.
 
 ## Privacy
 
-The repository contains no personal data. `profile.yaml`, `config.yaml`, `out/`, `cache/`, tokens and the SQLite file are git-ignored; `profile.example.yaml` describes a fictional person. Your mail is read only on your machine; the only network calls are to your mail provider and, for postings, to the public LinkedIn guest page. Nothing is sent to any other service. Passwords live in the OS keyring only. See `docs/threat-model.md`.
+The repository contains no personal data. `profile.yaml`, `config.yaml`, `out/`, `cache/`, tokens and the SQLite file are git-ignored; `profile.example.yaml` describes a fictional person. Your mail is read only on your machine; the only network calls are to your mail provider, to the public LinkedIn guest page for postings, and, if you switch the LLM on, to the `base_url` you set (keep it a local server: a hosted endpoint would receive posting text and your facts). Nothing is sent to any other service. Cookies the posting page sets are refused, so none is stored or sent back. Passwords live in the OS keyring only. See `docs/threat-model.md`.
 
 ## Why it never submits for you
 
@@ -111,7 +111,15 @@ Each site is a `Source` in `src/jac/sources.py`: its sender domain, its allowed 
 
 ## Limitations and an honest note on terms
 
-Alert mails contain only a few jobs, and the rules are keyword based: a clever posting can fool them, which is why borderline cases are shown with quoted evidence rather than decided. Language detection is a stopword ratio and works on postings of normal length. LinkedIn's terms restrict automated access; this tool is meant for personal, low-volume use of public pages only, one page per ten seconds, never logged in, and it stops at the first sign of a block. If you are unsure, skip fetching: open the links from the dashboard yourself. You are responsible for how you use it.
+Alert mails contain only a few jobs, and the rules are keyword based: a clever posting can fool them, which is why borderline cases are shown with quoted evidence rather than decided. For example, "Fluent Dutch is required, English is a plus" (two clauses joined by a comma) is read as a soft mention. Language detection is a stopword ratio and works on postings of normal length.
+
+The cover-note validator is a word filter. It does not catch a company or tool written in lower case ("i interned at globex"), a capitalised technology it does not know that also appears in the posting title, or a number from your fact bank reused in a false context ("16 projects" when 16 is your weekly hours). Read every note before you send it.
+
+Hidden-text removal reads HTML attributes and inline styles only; CSS rules in `<style>` sheets are not evaluated.
+
+Not yet tried against the real services: the Gmail OAuth flow, fetching postings from linkedin.com (LinkedIn's guest page may redirect or show a login wall, in which case jobs end up as "open manually"), and the local-LLM path. All of these are covered by tests with fakes only.
+
+LinkedIn's terms restrict automated access; this tool is meant for personal, low-volume use of public pages only, one page per ten seconds, never logged in, and it stops at the first sign of a block. If you are unsure, skip fetching: open the links from the dashboard yourself. You are responsible for how you use it.
 
 ## Deviations from the original spec
 
@@ -123,6 +131,8 @@ Alert mails contain only a few jobs, and the rules are keyword based: a clever p
 - An LLM can lower "fit" to "borderline" but never rejects; only rules reject. Text aimed at AI readers lowers the verdict to "borderline" on its own.
 - Degree rule: a master's or PhD requirement rejects, a "finished bachelor's before start" line is only borderline (it is often nominal for final-year students).
 - Jobs whose posting could not be read get the verdict `manual` (status stays `new`).
+- The cover-note validator accepts names and numbers from the fact bank and from the posting's title, company and location only, not from its description. This is stricter than "present in the fact bank or the posting": a requirement copied from a posting must not read as the user's experience.
+- A mail also needs `dmarc=pass` with `header.from` naming the sender domain, no failing SPF or DMARC result in the trusted header, and a `Sender` header (if any) on the sender domain.
 - The posting is fetched from its public canonical view URL; no unofficial LinkedIn API endpoint is used.
 - Demo fixtures live in `src/jac/demo_data` so `jac demo` works from an installed package; `examples/eml` holds the same style of alert mails for `jac run --source eml --eml-dir examples/eml`.
 
