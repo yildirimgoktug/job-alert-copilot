@@ -1,0 +1,94 @@
+# Example profile for a FICTIONAL person. Copy to profile.yaml (git-ignored) and edit.
+# Rule of thumb: write only what is true. The tool can only reuse these facts, never add to them.
+identity:
+  name: Alex Marlowe
+  headline: BSc Artificial Intelligence student | retrieval, language models, Python
+  email: alex.marlowe@example.com
+  phone: "+31 6 1234 5678"
+  location: Amsterdam, Netherlands
+  links:
+    github: https://github.com/alex-example
+    linkedin: https://www.linkedin.com/in/alex-example
+
+constraints:
+  languages:
+    - {name: English, level: fluent}
+    - {name: Turkish, level: native}
+  languages_not_spoken: [Dutch]
+  degree_level: bachelor
+  degree_field: Artificial Intelligence
+  degree_in_progress: true
+  graduation: 2027-06-30
+  earliest_start: 2026-12-01
+  years_experience: 1.0
+  max_hours_per_week_in_term: 16
+  locations: [Amsterdam, Netherlands, Utrecht, Remote]
+  remote_ok: true
+  work_authorisation_notes: >-
+    Example note shown next to any visa or work-permit line: describe your own situation here.
+  roles_of_interest: [AI research intern, machine learning engineer, data science intern, software engineer]
+
+summary: >-
+  Third-year AI student who builds small retrieval and language-model tools in **Python**.
+  Comfortable with testing, version control and writing up results.
+
+facts:
+  - id: edu-example-bsc
+    kind: education
+    title: BSc Artificial Intelligence
+    org: Example University, Amsterdam
+    dates: Sep 2024 - Jun 2027 (expected)
+    bullets:
+      - {id: edu-example-bsc-b1, text: "**GPA 8.0 / 10.** Machine Learning **9.0**, Databases **8.5**."}
+
+  - id: exp-studio
+    kind: experience
+    title: Freelance Web Developer
+    org: Marlowe Web Studio
+    dates: Jan 2025 - Present
+    tags: [web, python, testing]
+    bullets:
+      - {id: exp-studio-b1, text: "Built and launched a bilingual website for a local bakery, with Lighthouse scores of **100** on mobile."}
+      - {id: exp-studio-b2, text: "Wrote a **pytest** suite with **40** tests and set up continuous integration on GitHub Actions."}
+
+  - id: exp-tutor
+    kind: experience
+    title: Programming Tutor
+    org: Example University
+    dates: Sep 2025 - Jan 2026
+    tags: [teaching, python]
+    bullets:
+      - {id: exp-tutor-b1, text: "Taught weekly **Python** exercise sessions to groups of **25** first-year students."}
+
+  - id: proj-rag-search
+    kind: project
+    title: Course Search with Retrieval-Augmented Generation
+    team: team of 3
+    link: https://github.com/alex-example/course-search
+    tags: [python, retrieval, rag, pytorch, nlp]
+    bullets:
+      - {id: proj-rag-search-b1, text: "Built a local **RAG** search over **2,000** course descriptions with sentence embeddings and a reranker."}
+      - {id: proj-rag-search-b2, text: "A cross-encoder reranker raised top-1 accuracy from **41%** to **72%** on 50 test queries."}
+
+  - id: proj-bandit
+    kind: project
+    title: Bandit Strategies Compared
+    team: individual
+    tags: [python, reinforcement learning, statistics]
+    bullets:
+      - {id: proj-bandit-b1, text: "Compared four exploration strategies over **30** seeded runs and tested the differences with a Kruskal-Wallis test."}
+
+  - id: pub-preprint
+    kind: publication
+    title: Feature Scaling and Phishing URL Detection
+    link: https://doi.org/10.0000/example
+    tags: [machine learning, statistics, python]
+    bullets:
+      - {id: pub-preprint-b1, text: "A. Marlowe, J. Doe. *Feature Scaling and Phishing URL Detection.* Preprints.org, Jun 2026 (preprint, not peer-reviewed)."}
+
+skills:
+  - {name: AI and ML, items: [PyTorch, scikit-learn, pandas, retrieval-augmented generation, statistical testing]}
+  - {name: Software, items: [Python, SQL, Git, GitHub Actions, pytest]}
+  - {name: Languages, items: [English (fluent), Turkish (native)]}
+
+never_claim: [Kubernetes, blockchain, Rust]
