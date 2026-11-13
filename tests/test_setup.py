@@ -303,6 +303,17 @@ def test_cli_demo_list_mark_and_open(tmp_path, monkeypatch, capsys):
     assert cli.main(["--home", demo_home, "show", "123"]) == 2
 
 
+def test_cli_open_refuses_a_url_that_is_not_a_canonical_posting(tmp_path, monkeypatch):
+    """A tampered or old queue row must not make `jac open` launch an arbitrary page."""
+    opened = []
+    monkeypatch.setattr("webbrowser.open", lambda url: opened.append(url) or True)
+    (tmp_path / "config.yaml").write_text("mail:\n  provider: gmail\n", encoding="utf-8")
+    Queue(tmp_path / "jac.sqlite").add(Job(job_id="3900000001", source="linkedin", verdict="fit", status="prepared",
+                                           url="https://www.linkedin.com.evil.tld/jobs/view/3900000001"))
+    assert cli.main(["--home", str(tmp_path), "open", "3900000001"]) == 2
+    assert opened == []
+
+
 def test_cli_init_import_and_profile_check(tmp_path, capsys):
     home = str(tmp_path)
     answers = tmp_path / "a.yaml"

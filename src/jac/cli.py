@@ -130,6 +130,9 @@ def cmd_open(args: argparse.Namespace) -> int:
     """Open the canonical posting URL in the default browser. This is as far as the tool goes."""
     _, queue = _queue(args)
     job = _find(queue, args.job_id)
+    source = SOURCES.get(job.source)
+    if source is None or source.canonicalize(job.url) != job.url:
+        raise ConfigError(f"refusing to open {job.url!r}: it is not a canonical posting URL")
     webbrowser.open(job.url)
     if job.status in ("new", "prepared"):
         queue.set_status(job.job_id, "opened", job.source)
