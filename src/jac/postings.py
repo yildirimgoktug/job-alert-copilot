@@ -10,6 +10,7 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from http.cookiejar import DefaultCookiePolicy
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -21,18 +22,9 @@ from jac.config import FetchConfig
 from jac.sources import canonical_job_url
 
 _BLOCK_TAGS = ["p", "div", "li", "br", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "section", "ul", "ol"]
-_HIDDEN_STYLE_MARKERS = (
-    "display:none",
-    "visibility:hidden",
-    "font-size:0",
-    "opacity:0",
-    "left:-9999",
-    "text-indent:-9999",
-    "height:0;overflow:hidden",
-    "color:#fff;",
-    "color:#ffffff",
-    "color:white",
-)
+_WHITE = {"#fff", "#ffffff", "white", "rgb(255,255,255)", "transparent"}
+_OFFSCREEN_PROPS = ("left", "top", "right", "text-indent", "margin-left", "margin-top")
+_NUMBER = re.compile(r"^(-?\d*\.?\d+)")
 _HIDDEN_CLASSES = {"sr-only", "visually-hidden", "hidden", "d-none"}
 _STOP_STATUSES = {429, 999}
 _WALL_MARKERS = ("authwall", "uas/login", "session_key", "join linkedin", "sign in to view")
@@ -51,12 +43,51 @@ class Posting(BaseModel):
     date_posted: str = ""
 
 
+def _declarations(style: str) -> dict[str, str]:
+    """Inline CSS as {property: value}, lower-case, without spaces or !important."""
+    decls: dict[str, str] = {}
+    for part in style.split(";"):
+        name, sep, value = part.partition(":")
+        if sep:
+            decls[name.strip().lower()] = re.sub(r"\s+|!important", "", value.lower())
+    return decls
+
+
+def _zero(value: str) -> bool:
+    match = _NUMBER.match(value)
+    return bool(match) and float(match.group(1)) == 0
+
+
+def _style_hides(style: str) -> bool:
+    """True for the usual ways of hiding text with an inline style.
+
+    Each property is checked on its own, so 'background-color:#fff' is not mistaken for
+    white text. Rules in <style> sheets are not evaluated; see the README's limitations.
+    """
+    d = _declarations(style)
+    clipped = d.get("clip", "").startswith("rect(0") or d.get("clip-path", "") in {"inset(50%)", "circle(0)"}
+    tiny = any(_zero(d.get(p, "")) for p in ("height", "max-height", "width", "max-width"))
+    offscreen = any(
+        (m := _NUMBER.match(d.get(p, ""))) and float(m.group(1)) <= -999 for p in _OFFSCREEN_PROPS
+    )
+    return bool(
+        d.get("display") == "none"
+        or d.get("visibility") in {"hidden", "collapse"}
+        or _zero(d.get("font-size", "x"))
+        or _zero(d.get("opacity", "x"))
+        or d.get("color") in _WHITE
+        or clipped
+        or offscreen
+        or "scale(0" in d.get("transform", "")
+        or (tiny and d.get("overflow") == "hidden")
+    )
+
+
 def _is_hidden(tag: Tag) -> bool:
     attrs = tag.attrs or {}
     if "hidden" in attrs or str(attrs.get("aria-hidden", "")).lower() == "true":
         return True
-    style = re.sub(r"\s+", "", str(attrs.get("style", ""))).lower()
-    if style and any(marker in style + ";" for marker in _HIDDEN_STYLE_MARKERS):
+    if _style_hides(str(attrs.get("style", ""))):
         return True
     return bool(_HIDDEN_CLASSES & {c.lower() for c in attrs.get("class", [])})
 
@@ -186,6 +217,13 @@ class FetchResult:
         return self.html is not None
 
 
+def _cookieless_session() -> requests.Session:
+    """A session whose cookie jar refuses every cookie, so none is ever stored or sent back."""
+    session = requests.Session()
+    session.cookies.set_policy(DefaultCookiePolicy(allowed_domains=[]))
+    return session
+
+
 class PostingFetcher:
     """Fetches public guest posting pages, one request per interval, with a per-run cap.
 
@@ -204,7 +242,7 @@ class PostingFetcher:
         self._cfg = cfg
         self._cache = cache_dir / "postings"
         self._stamp = cache_dir / "last_request.txt"
-        self._session = session or requests.Session()
+        self._session = session or _cookieless_session()
         self._clock = clock
         self._sleep = sleep
         self._requests_made = 0
@@ -261,9 +299,11 @@ class PostingFetcher:
             if response.status_code in _STOP_STATUSES:
                 return self._halt(f"HTTP {response.status_code} (rate limited); stopping for this run")
             if 300 <= response.status_code < 400:
-                target = canonical_job_url(urljoin(url, response.headers.get("Location", "")))
+                location = urljoin(url, response.headers.get("Location", ""))
+                target = canonical_job_url(location)
                 if target is None or target.rsplit("/", 1)[1] != job_id:
                     return self._halt("redirected away from the posting (login wall); stopping for this run")
+                url = location  # same host, same job: follow exactly what was given
                 continue
             if response.status_code != 200:
                 return FetchResult("error", reason=f"HTTP {response.status_code}")

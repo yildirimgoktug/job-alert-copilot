@@ -142,6 +142,20 @@ def rule_posting_language(profile: Profile, posting: Posting) -> RuleResult:
     return RuleResult("posting_language", Outcome.PASS, f"The posting is written in {name}.")
 
 
+def _clause_with(sentence: str, aliases: tuple[str, ...]) -> str:
+    """The clause (split at ';' and 'but'/'while'/'whereas') that names the language.
+
+    A soft word must sit in the same clause to soften it: in "Fluent Dutch is required;
+    English is a plus" the "plus" belongs to English, not to Dutch. Commas are not split,
+    because "Fluency in Dutch, German or French is a plus" is one soft clause.
+    """
+    clauses = re.split(r";|\b(?:but|while|whereas)\b", sentence, flags=re.IGNORECASE)
+    for clause in clauses:
+        if any(re.search(rf"\b{re.escape(a)}\b", clause.lower()) for a in aliases):
+            return clause
+    return sentence
+
+
 def rule_required_languages(profile: Profile, posting: Posting) -> RuleResult:
     """Reject when a language the user does not speak is required; notes for soft mentions."""
     unspoken = _unspoken(profile)
@@ -153,7 +167,7 @@ def rule_required_languages(profile: Profile, posting: Posting) -> RuleResult:
             if not any(re.search(rf"\b{re.escape(a)}\b", lowered) for a in aliases):
                 continue
             label = language.capitalize()
-            if _SOFT.search(sentence):
+            if _SOFT.search(_clause_with(sentence, aliases)):
                 notes.append(RuleResult("required_languages", Outcome.NOTE, f"{label} is mentioned as a plus, not a requirement.", _quote(sentence)))
             elif _HARD_LANG.search(sentence):
                 return RuleResult("required_languages", Outcome.REJECT, f"{label} is required and you do not speak it.", _quote(sentence))
