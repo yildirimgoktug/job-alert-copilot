@@ -119,6 +119,12 @@ Alert mails contain only a few jobs, and the rules are keyword based: a clever p
 - IMAP search filters by sender domain and date on the server; the authenticity rules do the exact sender check afterwards.
 - `Source` objects (see above) hold the sender and link rules, so `verify_message(msg, source, trusted_authserv_ids)` is generic.
 - Outlook, Yahoo and Fastmail authserv-id presets are best-effort patterns; check them against one of your own mails (see Troubleshooting).
+- Only the topmost `Authentication-Results` header is read, and if it is from an untrusted server the mail is refused instead of searching downwards for a trusted-looking one. This is stricter than "the topmost one whose authserv-id is the provider", which could pick up a forged header if the provider's own is missing. There is no default authserv-id.
+- An LLM can lower "fit" to "borderline" but never rejects; only rules reject. Text aimed at AI readers lowers the verdict to "borderline" on its own.
+- Degree rule: a master's or PhD requirement rejects, a "finished bachelor's before start" line is only borderline (it is often nominal for final-year students).
+- Jobs whose posting could not be read get the verdict `manual` (status stays `new`).
+- The posting is fetched from its public canonical view URL; no unofficial LinkedIn API endpoint is used.
+- Demo fixtures live in `src/jac/demo_data` so `jac demo` works from an installed package; `examples/eml` holds the same style of alert mails for `jac run --source eml --eml-dir examples/eml`.
 
 ## Development
 
