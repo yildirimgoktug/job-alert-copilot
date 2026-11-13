@@ -141,7 +141,9 @@ class Profile(_Strict):
             self.summary,
             self.constraints.degree_field,
         ]
-        parts += [str(self.constraints.graduation or "")]
+        parts += [str(self.constraints.graduation or ""), str(self.constraints.earliest_start or "")]
+        if self.constraints.max_hours_per_week_in_term:
+            parts.append(f"{self.constraints.max_hours_per_week_in_term} hours per week")
         for fact in self.facts:
             parts += fact.texts()
         for group in self.skills:
