@@ -28,7 +28,7 @@ class HeuristicPageCounter:
     """Rough page estimate from the amount of text, used when no browser is available."""
 
     chars_per_line = 118
-    lines_per_page = 66
+    lines_per_page = 72  # calibrated against headless Chrome on a dense one-page CV
 
     def count(self, html: str) -> int:
         lines = sum(max(1, math.ceil(len(line) / self.chars_per_line)) for line in html_to_text(html).splitlines())
