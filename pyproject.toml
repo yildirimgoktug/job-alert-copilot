@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "job-alert-copilot"
+version = "0.1.0"
+description = "Reads your own LinkedIn job-alert e-mails, verifies them, checks fit with explicit rules, prepares a tailored CV and leaves the apply button to you."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Göktuğ Yıldırım" }]
+dependencies = [
+  "requests>=2.31",
+  "beautifulsoup4>=4.12",
+  "jinja2>=3.1",
+  "pydantic>=2.5",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+gmail = ["google-api-python-client>=2.100", "google-auth-oauthlib>=1.1"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+jac = "jac.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+jac = ["templates/*.j2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
