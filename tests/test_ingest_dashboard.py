@@ -1,3 +1,4 @@
+import re
 import subprocess
 from datetime import date
 from pathlib import Path
@@ -8,6 +9,7 @@ from conftest import ROOT
 from jac.config import Config
 from jac.dashboard import write_dashboard
 from jac.ingest import GMAIL_SCOPE, build_gmail_query, read_eml_folder
+from jac.profile import load_profile
 from jac.queue import Job, Queue
 from jac.sources import LINKEDIN
 from jac.tailor.pdf import BrowserPageCounter, count_pdf_pages, find_browser
@@ -72,16 +74,40 @@ def test_default_config_has_polite_fetch_limits():
     assert "@" not in fetch.user_agent and "job-alert-copilot" in fetch.user_agent
 
 
-def test_tracked_files_hold_no_personal_data():
+def _tracked_files() -> list[str]:
     try:
-        tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
+        return subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.splitlines()
     except (OSError, subprocess.CalledProcessError):
         pytest.skip("not a git checkout")
-    forbidden = ["goktugyildirim", "yildirimgoktug", "2743 9626"]
-    assert "profile.yaml" not in tracked and "config.yaml" not in tracked
-    for name in tracked:
+
+
+def test_private_files_are_not_tracked():
+    private = {"profile.yaml", "config.yaml", "token.json", "client_secret.json", "jac.sqlite"}
+    assert not [n for n in _tracked_files() if Path(n).name in private or n.startswith(("out/", "cache/"))]
+
+
+def _owner_strings(profile_file: Path) -> list[str]:
+    """Strings from the owner's own (git-ignored) profile that must never be committed.
+
+    They are read at test time, so the test itself holds no personal data. The name is not
+    listed because LICENSE and pyproject.toml carry it on purpose.
+    """
+    profile = load_profile(profile_file)
+    ident = profile.identity
+    strings = [ident.email, ident.email.split("@")[0], ident.phone, ident.phone.replace(" ", "")]
+    strings += [url.rstrip("/").rsplit("/", 1)[-1] for key, url in ident.links.items() if key != "github"]
+    strings += [re.split(r"[,(]", f.org)[0].strip() for f in profile.facts if f.org]
+    return [s.lower() for s in strings if len(s) >= 5]
+
+
+def test_tracked_files_hold_none_of_the_owners_details():
+    profile_file = ROOT / "profile.yaml"
+    if not profile_file.exists():
+        pytest.skip("no local profile.yaml to compare against")
+    forbidden = _owner_strings(profile_file)
+    for name in _tracked_files():
         path = ROOT / name
-        if path.name == Path(__file__).name or not path.is_file() or path.suffix in {".pdf", ".png"}:
+        if not path.is_file() or path.suffix in {".pdf", ".png"}:
             continue
         text = path.read_text(encoding="utf-8", errors="ignore").lower()
         assert not [f for f in forbidden if f in text], name
